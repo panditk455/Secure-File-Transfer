@@ -42,7 +42,7 @@
 ### 📁 File Structure
 
 ```
-SiFT/
+Secure-File-Transfer/
 ├── specification/
 │   ├── SiFT v1.0 specification.md
 ├── server/
