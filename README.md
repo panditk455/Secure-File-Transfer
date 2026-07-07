@@ -11,7 +11,7 @@ A hardened, from-scratch implementation of the **SiFT (Simple File Transfer) v1.
 
 ## Live demo
 
-**▶ [Interactive SiFT Protocol Explorer](https://panditk455.github.io/Secure-File-Transfer/)** — a byte-level walkthrough of the handshake and the AES-GCM message format, with a tamper toggle that shows the MAC failing closed. Every value is computed live in your browser with the Web Crypto API; no install required. Source: [`docs/index.html`](docs/index.html), auto-published to GitHub Pages by [`.github/workflows/pages.yml`](.github/workflows/pages.yml).
+**▶ [Interactive SiFT Protocol Explorer](https://panditk455.github.io/Secure-File-Transfer/)** — a byte-level walkthrough of the handshake and the AES-GCM message format, with a tamper toggle that shows the MAC failing closed. Every value is computed live in your browser with the Web Crypto API; no install required. Source: [`docs/index.html`](docs/index.html), served via GitHub Pages (Settings → Pages → Deploy from a branch → `main` → `/docs`).
 
 For the full system, the **Flask demo in [`webdemo/`](webdemo/)** drives a *real* client/server session and streams each SiFT message on the wire — header fields, GCM ciphertext, MAC, and verification status — beside a live security dashboard that fires detection alerts as you attack the protocol:
 
