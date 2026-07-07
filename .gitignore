@@ -1,0 +1,39 @@
+# Cryptographic keys — NEVER commit private keys
+*.pem
+server/keys/
+client/keys/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+venv/
+.venv/
+env/
+
+# Test / coverage / security-scan artifacts
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.hypothesis/
+bandit-report.json
+
+# Security event logs produced at runtime
+*.log
+security-events.jsonl
+
+# Downloaded demo content and protocol state
+client/downloads/
+sndstate.txt
+
+# Private interview-prep notes (not for the public repo)
+notes/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

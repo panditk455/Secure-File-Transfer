@@ -1,0 +1,459 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SiFT v1.0 — Protocol Datasheet</title>
+<meta name="description" content="An interactive datasheet for the SiFT v1.0 secure file-transfer protocol: the login handshake, the AES-256-GCM message format, and a live tamper demo — all computed in your browser.">
+<meta name="theme-color" content="#e7e9e3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#191b18" media="(prefers-color-scheme: dark)">
+<meta property="og:type" content="website">
+<meta property="og:title" content="SiFT v1.0 — Interactive Protocol Datasheet">
+<meta property="og:description" content="Step through a secure file-transfer protocol at the byte level: handshake, AES-256-GCM message format, and a tamper demo that fails closed. Real Web Crypto.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #e7e9e3; --surface: #f5f6f1; --ink: #15181c; --muted: #5f6670; --faint: #868d80;
+    --hair: #c6ccbe; --rule: #b4bbab;
+    --accent: #274a70; --accent-soft: #d8e1ea;
+    --good: #2f7d4f; --bad: #ac392f;
+    --key: #8a6d1e; --key-wash: #e8daa6; --sqn-wash: #cddcee; --rnd-wash: #dfe3d6;
+    --serif: "IBM Plex Serif", Georgia, "Times New Roman", serif;
+    --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #191b18; --surface: #21241f; --ink: #e7e8e0; --muted: #9aa090; --faint: #6f766a;
+      --hair: #333730; --rule: #3d4239;
+      --accent: #8bb0d2; --accent-soft: #26333f;
+      --good: #6dc088; --bad: #e0796d;
+      --key: #d8b658; --key-wash: #44391d; --sqn-wash: #24333f; --rnd-wash: #2a2e24;
+    }
+  }
+  :root[data-theme="light"] {
+    --paper: #e7e9e3; --surface: #f5f6f1; --ink: #15181c; --muted: #5f6670; --faint: #868d80;
+    --hair: #c6ccbe; --rule: #b4bbab; --accent: #274a70; --accent-soft: #d8e1ea;
+    --good: #2f7d4f; --bad: #ac392f; --key: #8a6d1e; --key-wash: #e8daa6; --sqn-wash: #cddcee; --rnd-wash: #dfe3d6;
+  }
+  :root[data-theme="dark"] {
+    --paper: #191b18; --surface: #21241f; --ink: #e7e8e0; --muted: #9aa090; --faint: #6f766a;
+    --hair: #333730; --rule: #3d4239; --accent: #8bb0d2; --accent-soft: #26333f;
+    --good: #6dc088; --bad: #e0796d; --key: #d8b658; --key-wash: #44391d; --sqn-wash: #24333f; --rnd-wash: #2a2e24;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans);
+         font-size: 16.5px; line-height: 1.6; -webkit-font-smoothing: antialiased; position: relative; }
+  /* faint engineering grid */
+  body::before { content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background-image: linear-gradient(var(--hair) 1px, transparent 1px),
+                      linear-gradient(90deg, var(--hair) 1px, transparent 1px);
+    background-size: 30px 30px; opacity: .22; }
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
+  h1, h2, h3 { text-wrap: balance; }
+  a { color: var(--accent); text-underline-offset: 3px; text-decoration-thickness: 1px; }
+  code, .mono { font-family: var(--mono); }
+
+  .label { font-family: var(--mono); font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+  .measure { max-width: 66ch; }
+
+  /* ---------- cover / header ---------- */
+  header.cover { border-bottom: 2px solid var(--ink); padding: 30px 0 22px; margin-bottom: 2px; }
+  .doc-meta { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+  .doc-meta .label { color: var(--muted); }
+  header.cover h1 { font-family: var(--serif); font-weight: 600; font-size: clamp(32px, 6vw, 60px);
+    line-height: 1.02; letter-spacing: -.01em; margin: 20px 0 8px; }
+  header.cover .sub { font-family: var(--serif); font-style: italic; font-size: clamp(17px, 2.4vw, 22px);
+    color: var(--muted); margin: 0 0 22px; }
+  header.cover .abstract { font-size: 16px; color: var(--ink); max-width: 62ch; margin: 0 0 24px; }
+  .spec-table { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--rule);
+    border-radius: 3px; overflow: hidden; margin-bottom: 20px; }
+  @media (max-width: 620px) { .spec-table { grid-template-columns: repeat(2, 1fr); } }
+  .spec-table .cell { padding: 10px 14px; border-right: 1px solid var(--hair); border-bottom: 1px solid var(--hair); background: var(--surface); }
+  .spec-table .cell:nth-child(4n) { border-right: none; }
+  .spec-table .cell .k { font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+  .spec-table .cell .v { font-family: var(--mono); font-size: 14px; margin-top: 3px; color: var(--ink); }
+  .spec-table .cell .v.ok { color: var(--good); }
+  .fpr { font-family: var(--mono); font-size: 12.5px; color: var(--muted); }
+  .fpr b { color: var(--key); font-weight: 500; }
+  .cta { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
+  .btn { font-family: var(--mono); font-size: 12.5px; letter-spacing: .04em; border: 1px solid var(--rule);
+    background: var(--surface); color: var(--ink); border-radius: 3px; padding: 9px 15px; cursor: pointer;
+    transition: border-color .15s, background .15s; text-decoration: none; display: inline-block; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); color: var(--paper); border-color: var(--accent); }
+
+  /* ---------- sections ---------- */
+  section { padding: 46px 0; border-bottom: 1px solid var(--rule); }
+  .sec-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 6px; }
+  .sec-head .num { font-family: var(--mono); font-size: 15px; color: var(--accent); font-weight: 500; }
+  .sec-head h2 { font-family: var(--serif); font-weight: 600; font-size: clamp(22px, 3.4vw, 30px); margin: 0; }
+  section > .wrap > p.intro { color: var(--muted); margin: 0 0 26px; }
+
+  /* ---------- handshake ---------- */
+  .hs { display: grid; grid-template-columns: 240px 1fr; gap: 24px; }
+  @media (max-width: 800px) { .hs { grid-template-columns: 1fr; } }
+  .steps { display: flex; flex-direction: column; }
+  .step { text-align: left; border: none; border-left: 2px solid var(--hair); background: transparent; color: var(--muted);
+    padding: 11px 15px; cursor: pointer; font: inherit; transition: border-color .15s, color .15s; }
+  .step:hover { color: var(--ink); }
+  .step[aria-selected="true"] { border-left-color: var(--accent); color: var(--ink); background: var(--surface); }
+  .step .n { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; color: var(--accent); }
+  .step .t { display: block; font-size: 14.5px; margin-top: 2px; }
+
+  .stage { border: 1px solid var(--rule); border-radius: 4px; padding: 22px; background: var(--surface); min-height: 350px; }
+  .lane { display: grid; grid-template-columns: 1fr 96px 1fr; align-items: center; margin-bottom: 22px; }
+  .entity { border: 1px solid var(--hair); border-radius: 3px; padding: 12px 14px; background: var(--paper); }
+  .entity .who { font-family: var(--mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+  .entity .st { font-family: var(--mono); font-size: 12.5px; margin-top: 7px; min-height: 36px; color: var(--ink); word-break: break-all; line-height: 1.5; }
+  .conn { position: relative; height: 44px; display: flex; align-items: center; }
+  .arrow { position: relative; width: 100%; height: 1px; background: var(--rule); }
+  .arrow.active { background: var(--accent); }
+  .arrow.fwd::after, .arrow.rev::after { content: ""; position: absolute; top: -4px; border: 5px solid transparent; }
+  .arrow.fwd::after { right: -1px; border-left-color: var(--accent); }
+  .arrow.rev::after { left: -1px; border-right-color: var(--accent); }
+  .arrow.idle { background: var(--hair); }
+  .tick { position: absolute; top: -2px; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
+
+  .explain { border-top: 1px solid var(--hair); padding-top: 16px; }
+  .explain h3 { font-family: var(--serif); font-size: 17px; font-weight: 600; margin: 0 0 7px; }
+  .explain p { margin: 0 0 13px; color: var(--muted); font-size: 15px; max-width: 68ch; }
+  .explain p code, .intro code, .measure code { background: var(--accent-soft); padding: 1px 5px; border-radius: 3px; font-size: .88em; }
+  pre { background: var(--paper); border: 1px solid var(--hair); border-left: 2px solid var(--accent); border-radius: 3px;
+    padding: 13px 15px; overflow-x: auto; font-family: var(--mono); font-size: 12.5px; margin: 0; line-height: 1.55; }
+  pre .cm { color: var(--faint); font-style: italic; } pre .kw { color: var(--accent); } pre .st { color: var(--good); }
+
+  /* ---------- byte / register map ---------- */
+  .reg { overflow-x: auto; padding-bottom: 2px; }
+  .ruler { display: flex; gap: 3px; font-family: var(--mono); font-size: 9.5px; color: var(--faint); margin-bottom: 3px; }
+  .ruler span { width: 27px; text-align: center; flex: none; }
+  .bytes { display: flex; flex-wrap: wrap; gap: 3px; font-family: var(--mono); font-size: 12.5px; margin: 2px 0; }
+  .bytes.fixed { flex-wrap: nowrap; }
+  .b { width: 27px; text-align: center; padding: 4px 0; border: 1px solid var(--hair); border-radius: 2px;
+       background: var(--paper); font-variant-numeric: tabular-nums; flex: none; }
+  .b.sqn { background: var(--sqn-wash); border-color: var(--accent); }
+  .b.rnd { background: var(--rnd-wash); }
+  .b.key { background: var(--key-wash); border-color: var(--key); }
+  .b.mac { background: var(--accent-soft); border-color: var(--accent); }
+  .b.ct  { color: var(--accent); }
+  .b.flip { background: var(--bad); border-color: var(--bad); color: #fff; font-weight: 600; }
+  .b.more { border: none; background: transparent; color: var(--faint); width: auto; padding-left: 4px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 9px; }
+  .legend i { width: 11px; height: 11px; border-radius: 2px; display: inline-block; vertical-align: -1px; margin-right: 5px; border: 1px solid var(--hair); }
+
+  /* ---------- lab ---------- */
+  .lab { display: grid; grid-template-columns: 300px 1fr; gap: 24px; align-items: start; }
+  @media (max-width: 800px) { .lab { grid-template-columns: 1fr; } }
+  .controls, .readout { border: 1px solid var(--rule); background: var(--surface); border-radius: 4px; padding: 18px; }
+  label.fld { display: block; font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--muted); margin: 16px 0 6px; }
+  label.fld:first-child { margin-top: 0; }
+  input[type=text], input[type=number] { width: 100%; background: var(--paper); border: 1px solid var(--hair);
+    color: var(--ink); border-radius: 3px; padding: 8px 10px; font-family: var(--mono); font-size: 13px; }
+  input:focus { outline: none; border-color: var(--accent); }
+  .toggle { display: flex; align-items: center; gap: 11px; margin-top: 20px; font-size: 14.5px; cursor: pointer; user-select: none; }
+  .switch { width: 42px; height: 22px; border-radius: 3px; background: var(--hair); position: relative; transition: background .18s; flex: none; border: 1px solid var(--rule); }
+  .switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 2px; background: var(--muted); transition: transform .18s, background .18s; }
+  .toggle[aria-pressed="true"] .switch { background: var(--bad); border-color: var(--bad); }
+  .toggle[aria-pressed="true"] .switch::after { transform: translateX(20px); background: #fff; }
+  .verdict { margin-top: 18px; border-radius: 3px; padding: 13px 15px; font-family: var(--mono); font-size: 14px;
+    border: 1px solid var(--hair); border-left-width: 3px; }
+  .verdict.ok  { border-left-color: var(--good); color: var(--good); }
+  .verdict.fail{ border-left-color: var(--bad); color: var(--bad); }
+  .verdict .big { font-weight: 600; }
+
+  /* ---------- defenses ---------- */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(228px, 1fr)); border: 1px solid var(--rule); border-radius: 4px; overflow: hidden; }
+  .card { padding: 17px 18px; border-right: 1px solid var(--hair); border-bottom: 1px solid var(--hair); background: var(--surface); }
+  .card .thr { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--bad); }
+  .card h3 { font-family: var(--serif); font-size: 16px; font-weight: 600; margin: 6px 0 7px; }
+  .card p { margin: 0; color: var(--muted); font-size: 13.5px; }
+  .card .mech { font-family: var(--mono); font-size: 11.5px; color: var(--accent); margin-top: 10px; display: block; }
+
+  footer { padding: 34px 0 60px; color: var(--muted); font-size: 14px; }
+  footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 24px; justify-content: space-between; align-items: baseline; }
+  .theme-toggle { position: fixed; top: 14px; right: 14px; z-index: 20; }
+
+  @media (prefers-reduced-motion: reduce) { *, ::before, ::after { animation: none !important; transition: none !important; } }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+</head>
+<body>
+
+<button class="btn theme-toggle" id="themeBtn" aria-label="Toggle light / dark theme">◐&nbsp;theme</button>
+
+<header class="cover">
+  <div class="wrap">
+    <div class="doc-meta">
+      <span class="label">SiFT · Simple File Transfer</span>
+      <span class="label">Interactive datasheet</span>
+    </div>
+    <h1>A secure file-transfer protocol, examined byte by byte.</h1>
+    <p class="sub">Authenticated encryption, a key-establishing handshake, and what happens when the wire is attacked.</p>
+    <p class="abstract measure">SiFT v1.0 moves files between a client and a server over an untrusted network. This
+      page is a working datasheet: it walks the login handshake, lays out the AES-256-GCM message format as a
+      register map, and lets you tamper with a live ciphertext to watch verification fail closed. Every value shown
+      is computed in your browser with the Web Crypto API — nothing is faked.</p>
+    <div class="spec-table">
+      <div class="cell"><div class="k">Version</div><div class="v">1.0</div></div>
+      <div class="cell"><div class="k">Record cipher</div><div class="v">AES-256-GCM</div></div>
+      <div class="cell"><div class="k">Key exchange</div><div class="v">RSA-OAEP · HKDF</div></div>
+      <div class="cell"><div class="k">Posture</div><div class="v ok">fail-closed</div></div>
+    </div>
+    <p class="fpr">server public-key fingerprint (SHA-256): <b id="heroFpr">computing…</b></p>
+    <div class="cta">
+      <a class="btn primary" href="#handshake">Walk the handshake →</a>
+      <a class="btn" href="#lab">Tamper demo</a>
+      <a class="btn" href="https://github.com/panditk455/Secure-File-Transfer">Source on GitHub</a>
+    </div>
+  </div>
+</header>
+
+<section id="handshake">
+  <div class="wrap">
+    <div class="sec-head"><span class="num">§1</span><h2>The login handshake</h2></div>
+    <p class="intro measure">Before a single command is sent, the client and server run a five-step exchange that
+      authenticates the user and derives fresh, per-direction encryption keys. Select a step to see the live values,
+      the real code, and the reasoning.</p>
+    <div class="hs">
+      <div class="steps" id="steps" role="tablist" aria-label="Handshake steps"></div>
+      <div class="stage">
+        <div class="lane">
+          <div class="entity"><div class="who">Client</div><div class="st" id="clientState">—</div></div>
+          <div class="conn"><div class="arrow idle" id="arrow"></div></div>
+          <div class="entity"><div class="who">Server</div><div class="st" id="serverState">—</div></div>
+        </div>
+        <div class="explain" id="explain"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="lab">
+  <div class="wrap">
+    <div class="sec-head"><span class="num">§2</span><h2>A message on the wire</h2></div>
+    <p class="intro measure">Every SiFT message is a 16-byte header, an AES-256-GCM ciphertext, and a 12-byte
+      authentication tag. The header is bound into the tag as associated data; the nonce is the sequence number
+      followed by six random bytes. Edit the payload, then flip <b>tamper</b> to corrupt one ciphertext byte and
+      watch verification <b>fail closed</b>.</p>
+    <div class="lab">
+      <div class="controls">
+        <label class="fld" for="payload">Plaintext payload</label>
+        <input type="text" id="payload" value="upl salary.csv">
+        <label class="fld" for="sqn">Sequence number (sqn)</label>
+        <input type="number" id="sqn" value="2" min="1" max="65535">
+        <div class="toggle" id="tamperToggle" role="button" aria-pressed="false" tabindex="0">
+          <span class="switch"></span><span>Tamper with the ciphertext</span>
+        </div>
+        <p class="label" style="margin-top:16px; line-height:1.7; letter-spacing:.04em; text-transform:none">
+          Encrypted under the client→server key <span style="color:var(--key)">k_c2s</span> derived in §1.
+          Real AES-GCM with a 96-bit tag.</p>
+      </div>
+      <div class="readout">
+        <label class="fld">16-byte header — authenticated as associated data</label>
+        <div class="reg"><div class="ruler" id="headerRuler"></div><div class="bytes fixed" id="headerBytes"></div></div>
+        <div class="legend">
+          <span><i style="background:var(--paper)"></i>ver · typ · len</span>
+          <span><i style="background:var(--sqn-wash); border-color:var(--accent)"></i>sqn</span>
+          <span><i style="background:var(--rnd-wash)"></i>rnd</span>
+        </div>
+        <label class="fld">nonce = sqn ‖ rnd (8 bytes)</label>
+        <div class="reg"><div class="bytes fixed" id="nonceBytes"></div></div>
+        <p class="label" style="text-transform:none; letter-spacing:.02em; margin-top:6px; color:var(--faint)">
+          SiFT feeds this 8-byte nonce straight to GCM (which accepts any nonce length). This in-browser
+          demo zero-pads it to the 96&nbsp;bits the Web Crypto API requires.</p>
+        <label class="fld">ciphertext</label>
+        <div class="bytes" id="ctBytes"></div>
+        <label class="fld">authentication tag (MAC, 12 bytes)</label>
+        <div class="bytes" id="macBytes"></div>
+        <div class="verdict ok" id="verdict"><span class="big">—</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="defenses">
+  <div class="wrap">
+    <div class="sec-head"><span class="num">§3</span><h2>What each defense stops</h2></div>
+    <p class="intro measure">The primitives above aren't decoration — each answers a specific attack. This is the
+      threat model in miniature; the full write-up lives in the repository.</p>
+    <div class="grid" id="defGrid"></div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div>Built by <b style="color:var(--ink)">Kritika Pandit</b>. The reference implementation is Python + pycryptodome.</div>
+    <div><a href="https://github.com/panditk455/Secure-File-Transfer">github.com/panditk455/Secure-File-Transfer</a></div>
+  </div>
+</footer>
+
+<script>
+const root = document.documentElement;
+document.getElementById('themeBtn').addEventListener('click', () => {
+  const cur = root.getAttribute('data-theme')
+    || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  root.setAttribute('data-theme', cur === 'dark' ? 'light' : 'dark');
+});
+
+const enc = new TextEncoder();
+const hex = b => Array.from(b, x => x.toString(16).padStart(2, '0')).join('');
+const rand = n => crypto.getRandomValues(new Uint8Array(n));
+async function sha256(buf){ return new Uint8Array(await crypto.subtle.digest('SHA-256', buf)); }
+async function fpr(buf){ return hex(await sha256(buf)).slice(0, 16); }
+function bytesEl(el, arr, cls, flipIndex = -1, cap = 0){
+  el.innerHTML = '';
+  const n = cap && arr.length > cap ? cap : arr.length;
+  for (let i = 0; i < n; i++){
+    const s = document.createElement('span');
+    s.className = 'b ' + (i === flipIndex ? 'flip' : (typeof cls === 'function' ? cls(i) : cls));
+    s.textContent = arr[i].toString(16).padStart(2, '0');
+    el.appendChild(s);
+  }
+  if (cap && arr.length > cap){
+    const m = document.createElement('span'); m.className = 'b more';
+    m.textContent = '+' + (arr.length - cap) + ' bytes'; el.appendChild(m);
+  }
+}
+
+const S = {};
+
+const STEPS = [
+  { n: 'Step 1', t: 'Client mints a temporary key',
+    build: async () => { S.tk = rand(32); return {
+      client: 'tk = ' + hex(S.tk).slice(0,16) + '…  (32 random bytes)', server: 'waiting…', arrow: 'idle',
+      h: 'A fresh 256-bit temporary key, per session',
+      p: 'The client generates a random AES-256 key <code>tk</code> that exists only for this session. It protects the login exchange itself, before the real session keys exist.',
+      code: '<span class="kw">self</span>.tk = urandom(32)  <span class="cm"># fresh per session</span>' }; }},
+  { n: 'Step 2', t: 'Wrap tk to the server (RSA-OAEP)',
+    build: async () => { S.etk = await crypto.subtle.encrypt({name:'RSA-OAEP'}, S.rsaPub, S.tk); return {
+      client: 'etk = RSA-OAEP(tk) → 256 bytes', server: 'holds the RSA-2048 private key', arrow: 'idle',
+      h: 'Only the server can unwrap it',
+      p: 'The client encrypts <code>tk</code> under the server\'s RSA-2048 public key using OAEP with SHA-256. Only the private-key holder can recover it — this is how the symmetric key is delivered.',
+      code: 'cipher = PKCS1_OAEP.new(server_pubkey, hashAlgo=SHA256)\netk = cipher.encrypt(<span class="kw">self</span>.tk)  <span class="cm"># 256-byte blob</span>' }; }},
+  { n: 'Step 3', t: 'Client → Server: login request',
+    build: async () => { S.clientRandom = rand(16);
+      const payload = enc.encode('1699…\\nalice\\n••••••\\n' + hex(S.clientRandom)); S.reqHash = await sha256(payload); return {
+      client: 'sends login_req + etk + client_random', server: 'unwraps tk, verifies password (PBKDF2)', arrow: 'fwd',
+      h: 'Authenticated with a deliberately slow hash',
+      p: 'The request (timestamp, username, password, a 16-byte client random) is encrypted under <code>tk</code>. The server verifies the password with PBKDF2-HMAC-SHA256 — 100,000 iterations, per-user salt — so offline guessing is expensive.',
+      code: 'pwdhash = PBKDF2(pwd, salt, 32, count=<span class="st">100000</span>, hmac_hash_module=SHA256)\n<span class="kw">return</span> pwdhash == stored_hash' }; }},
+  { n: 'Step 4', t: 'Server → Client: login response',
+    build: async () => { S.serverRandom = rand(16); return {
+      client: 'verifies the request_hash echo', server: 'sends request_hash + server_random', arrow: 'rev',
+      h: 'A server random joins the mix',
+      p: 'The server replies with a 16-byte server random and an echo of the request hash, proving it read the real request. Both randoms now feed key derivation.',
+      code: 'server_random = urandom(16)\nlogin_res = request_hash.hex() + <span class="st">"\\n"</span> + server_random.hex()' }; }},
+  { n: 'Step 5', t: 'Both derive directional keys (HKDF)',
+    build: async () => {
+      const ikm = new Uint8Array([...S.clientRandom, ...S.serverRandom]);
+      const base = await crypto.subtle.importKey('raw', ikm, 'HKDF', false, ['deriveBits']);
+      const derive = async label => new Uint8Array(await crypto.subtle.deriveBits(
+        { name:'HKDF', hash:'SHA-256', salt:S.reqHash, info: enc.encode(label) }, base, 256));
+      S.kc2s = await derive('SiFT v1.0 client-to-server'); S.ks2c = await derive('SiFT v1.0 server-to-client'); return {
+      client: 'k_c2s ' + await fpr(S.kc2s) + '<br>k_s2c ' + await fpr(S.ks2c),
+      server: 'k_c2s ' + await fpr(S.kc2s) + '<br>k_s2c ' + await fpr(S.ks2c), arrow: 'idle',
+      h: 'Two keys, one per direction — the nonce-reuse fix',
+      p: 'Both sides run HKDF-SHA256 over <code>client_random ‖ server_random</code> (salted with the request hash) under two context labels, yielding <span style="color:var(--key)">separate keys per direction</span>. Because the directions never share a key, they can never share a (key, nonce) pair — closing a real nonce-reuse weakness in the original single-key design.',
+      code: 'k_c2s = HKDF(cr+sr, 32, salt=req_hash, context=<span class="st">b"…client-to-server"</span>)\nk_s2c = HKDF(cr+sr, 32, salt=req_hash, context=<span class="st">b"…server-to-client"</span>)' }; }},
+];
+
+let selected = 0;
+const stepsEl = document.getElementById('steps');
+STEPS.forEach((s, i) => {
+  const b = document.createElement('button');
+  b.className = 'step'; b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', i === 0);
+  b.innerHTML = '<span class="n">' + s.n + '</span><span class="t">' + s.t + '</span>';
+  b.addEventListener('click', () => selectStep(i));
+  stepsEl.appendChild(b);
+});
+
+async function selectStep(i){
+  selected = i;
+  [...stepsEl.children].forEach((c, j) => c.setAttribute('aria-selected', j === i));
+  let view; for (let k = 0; k <= i; k++) view = await STEPS[k].build();
+  document.getElementById('clientState').innerHTML = view.client;
+  document.getElementById('serverState').innerHTML = view.server;
+  const arrow = document.getElementById('arrow');
+  arrow.className = 'arrow ' + (view.arrow === 'rev' ? 'active rev' : (view.arrow === 'fwd' ? 'active fwd' : 'idle'));
+  if ((view.arrow === 'fwd' || view.arrow === 'rev') && !matchMedia('(prefers-reduced-motion: reduce)').matches){
+    const t = document.createElement('div'); t.className = 'tick'; arrow.appendChild(t);
+    t.animate([{left:'0%'},{left:'100%'}], {duration:620, easing:'ease-in-out', direction: view.arrow==='rev'?'reverse':'normal'})
+      .onfinish = () => t.remove();
+  }
+  document.getElementById('explain').innerHTML =
+    '<h3>' + view.h + '</h3><p>' + view.p + '</p><pre>' + view.code + '</pre>';
+}
+
+// header offset ruler 0..15
+(() => { const r = document.getElementById('headerRuler');
+  for (let i = 0; i < 16; i++){ const s = document.createElement('span'); s.textContent = i; r.appendChild(s); } })();
+
+async function buildMessage(){
+  if (!S.kc2s) return;
+  const payload = enc.encode(document.getElementById('payload').value || ' ');
+  const sqn = Math.max(1, Math.min(65535, parseInt(document.getElementById('sqn').value || '2')));
+  const tamper = document.getElementById('tamperToggle').getAttribute('aria-pressed') === 'true';
+  if (!S.rnd6) S.rnd6 = rand(6);
+  const sqnB = new Uint8Array([sqn >> 8, sqn & 0xff]);
+  const total = 16 + payload.length + 12;
+  const header = new Uint8Array([0x01,0x00, 0x01,0x00, (total>>8)&0xff, total&0xff, sqnB[0],sqnB[1], ...S.rnd6, 0x00,0x00]);
+  const nonce = new Uint8Array([...sqnB, ...S.rnd6]);            // SiFT's real 8-byte nonce
+  const iv = new Uint8Array([...nonce, 0, 0, 0, 0]);            // padded to 96 bits for Web Crypto
+  const key = await crypto.subtle.importKey('raw', S.kc2s, 'AES-GCM', false, ['encrypt','decrypt']);
+  const out = new Uint8Array(await crypto.subtle.encrypt({ name:'AES-GCM', iv, additionalData: header, tagLength: 96 }, key, payload));
+  const ct = out.slice(0, out.length - 12); const mac = out.slice(out.length - 12);
+  bytesEl(document.getElementById('headerBytes'), header, i => i < 6 ? '' : i < 8 ? 'sqn' : i < 14 ? 'rnd' : '');
+  bytesEl(document.getElementById('nonceBytes'), nonce, i => i < 2 ? 'sqn' : 'rnd');
+  let flipIndex = -1; const shownCt = ct.slice();
+  if (tamper && shownCt.length){ flipIndex = Math.floor(shownCt.length/2); shownCt[flipIndex] ^= 0x40; }
+  bytesEl(document.getElementById('ctBytes'), shownCt, 'ct', flipIndex, 24);
+  bytesEl(document.getElementById('macBytes'), mac, 'mac');
+  const verdict = document.getElementById('verdict');
+  try {
+    await crypto.subtle.decrypt({ name:'AES-GCM', iv, additionalData: header, tagLength: 96 }, key, new Uint8Array([...shownCt, ...mac]));
+    verdict.className = 'verdict ok';
+    verdict.innerHTML = '<span class="big">✓ MAC verified.</span> Payload decrypts; integrity intact.';
+  } catch {
+    verdict.className = 'verdict fail';
+    verdict.innerHTML = '<span class="big">✗ MAC verification failed.</span> One flipped byte and the message is rejected — fail closed, no plaintext returned.';
+  }
+}
+['payload','sqn'].forEach(id => document.getElementById(id).addEventListener('input', () => { S.rnd6 = null; buildMessage(); }));
+const tog = document.getElementById('tamperToggle');
+function flip(){ tog.setAttribute('aria-pressed', tog.getAttribute('aria-pressed') !== 'true'); buildMessage(); }
+tog.addEventListener('click', flip);
+tog.addEventListener('keydown', e => { if (e.key === ' ' || e.key === 'Enter'){ e.preventDefault(); flip(); }});
+
+const DEFS = [
+  { thr: 'Eavesdropping', h: 'Confidentiality', mech: 'AES-256-GCM', p: 'Command and file bytes are encrypted; a passive tap sees only ciphertext.' },
+  { thr: 'Tampering', h: 'Integrity + authenticity', mech: 'GCM tag over header (AAD)', p: 'Any modified bit — even in the cleartext header — fails the tag and is rejected.' },
+  { thr: 'Replay', h: 'Freshness', mech: 'Per-direction sequence numbers', p: 'Each message carries a strictly increasing counter; a replayed frame is stale and dropped.' },
+  { thr: 'Nonce reuse', h: 'Keystream separation', mech: 'HKDF directional keys', p: 'Separate keys per direction mean the two sides can never collide on a (key, nonce) pair.' },
+  { thr: 'Offline cracking', h: 'Credential protection', mech: 'PBKDF2 · 100k · salt', p: 'Stolen password hashes are slow and salted, defeating rainbow tables and fast guessing.' },
+  { thr: 'Path traversal', h: 'Directory confinement', mech: 'allowlist + realpath check', p: 'A "../" name is refused twice: a strict name filter and a resolved-path containment check.' },
+  { thr: 'MITM on first connect', h: 'Server authentication', mech: 'public-key fingerprint pinning', p: 'The client pins the server key fingerprint (trust-on-first-use), so a swapped key is visible.' },
+  { thr: 'Brute force', h: 'Rate limiting', mech: 'per-user lockout + alerts', p: 'Repeated failures lock the account and raise a brute-force alert in the monitor.' },
+];
+const dg = document.getElementById('defGrid');
+DEFS.forEach(d => { const c = document.createElement('div'); c.className = 'card';
+  c.innerHTML = '<div class="thr">' + d.thr + '</div><h3>' + d.h + '</h3><p>' + d.p + '</p><span class="mech">→ ' + d.mech + '</span>';
+  dg.appendChild(c); });
+
+(async () => {
+  const kp = await crypto.subtle.generateKey(
+    { name:'RSA-OAEP', modulusLength:2048, publicExponent:new Uint8Array([1,0,1]), hash:'SHA-256' }, true, ['encrypt','decrypt']);
+  S.rsaPub = kp.publicKey;
+  const spki = new Uint8Array(await crypto.subtle.exportKey('spki', kp.publicKey));
+  document.getElementById('heroFpr').textContent = await fpr(spki);
+  for (let k = 0; k < STEPS.length; k++) await STEPS[k].build();
+  await selectStep(0);
+  await buildMessage();
+})();
+</script>
+</body>
+</html>

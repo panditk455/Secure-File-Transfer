@@ -1,0 +1,39 @@
+# Compose spec (no top-level `version:` key needed on modern Docker Compose).
+#
+# Two services built from the same image:
+#   server   -- the SiFT protocol server (TCP 5150)
+#   webdemo  -- webdemo/app.py, the Flask demo (wire panel + security dashboard)
+#
+# Both mount a shared named volume for key material so the webdemo's pinned
+# server public key (trust-on-first-use) matches the key the server actually
+# uses. The server boots first and its entrypoint generates the pair into the
+# shared volumes; the webdemo then reuses them instead of minting its own.
+
+services:
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5150:5150"
+    volumes:
+      - sift-server-keys:/app/server/keys
+      - sift-client-keys:/app/client/keys
+
+  webdemo:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    # webdemo/app.py is the Flask demo front-end; it speaks SiFT to the server.
+    command: python webdemo/app.py --host 0.0.0.0 --port 8000 --sift-host server --sift-port 5150
+    ports:
+      - "8000:8000"
+    volumes:
+      - sift-server-keys:/app/server/keys
+      - sift-client-keys:/app/client/keys
+    depends_on:
+      - server
+
+volumes:
+  sift-server-keys:
+  sift-client-keys:

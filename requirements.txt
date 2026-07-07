@@ -1,0 +1,13 @@
+# Core protocol
+pycryptodome>=3.20
+
+# Web demo (webdemo/)
+flask>=3.0
+flask-sock>=0.7
+
+# Development / CI (tests, fuzzing, security scanning)
+pytest>=8.0
+pytest-cov
+hypothesis>=6.0
+bandit
+pip-audit

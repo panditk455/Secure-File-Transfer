@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Least privilege: CI only needs to read the repo contents.
+permissions:
+  contents: read
+
+jobs:
+  test-and-scan:
+    name: Test & security scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          # Full history so the secret scanner can inspect every commit.
+          fetch-depth: 0
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -e .
+
+      - name: Run tests
+        # Tests live in tests/, import the siftprotocols package, and use
+        # socket.socketpair for in-process client<->server exchanges, so no
+        # real network or key material is required.
+        run: pytest -q
+
+      - name: Static analysis (Bandit)
+        # -ll raises the reporting threshold to MEDIUM+ severity; findings at
+        # that level fail the job. The config in pyproject.toml skips B413, the
+        # pycryptodome-vs-PyCrypto false positive (documented there).
+        continue-on-error: false
+        run: bandit -c pyproject.toml -r siftprotocols server client webdemo generate_keys.py -ll
+
+      - name: Dependency audit (pip-audit)
+        # Relies on the external advisory database being reachable, so a
+        # transient outage should not fail the build.
+        continue-on-error: true
+        run: pip-audit
+
+      - name: Secret scan (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
