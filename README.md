@@ -11,7 +11,7 @@ A hardened, from-scratch implementation of the **SiFT (Simple File Transfer) v1.
 
 ## Live demo
 
-**▶ [Interactive SiFT Protocol Explorer](https://panditk455.github.io/Secure-File-Transfer/)** — a byte-level walkthrough of the handshake and the AES-GCM message format, with a tamper toggle that shows the MAC failing closed. Every value is computed live in your browser with the Web Crypto API; no install required. Source: [`docs/index.html`](docs/index.html), served via GitHub Pages (Settings → Pages → Deploy from a branch → `main` → `/docs`).
+**▶ [Interactive SiFT Protocol Explorer](https://panditk455.github.io/Secure-File-Transfer/)** — a byte-level walkthrough of the handshake and the AES-GCM message format, with a tamper toggle that shows the MAC failing closed. Every value is computed live in your browser with the Web Crypto API; no install required. Source: [`index.html`](index.html) at the repo root, served via GitHub Pages (Settings → Pages → Deploy from a branch → `main` → `/ (root)`).
 
 For the full system, the **Flask demo in [`webdemo/`](webdemo/)** drives a *real* client/server session and streams each SiFT message on the wire — header fields, GCM ciphertext, MAC, and verification status — beside a live security dashboard that fires detection alerts as you attack the protocol:
 
@@ -102,7 +102,7 @@ Secure-File-Transfer/
 ├── tests/                    # pytest + hypothesis: unit, property, and integration tests
 ├── attacks/                  # red-team harness: tamper / replay / traversal / downgrade / nonce-reuse
 ├── webdemo/                  # Flask app: live wire panel + security dashboard
-├── docs/                     # index.html — the interactive site (served via GitHub Pages)
+├── index.html                # the interactive site (served at the repo root via GitHub Pages)
 ├── _specification/           # SiFT v1.0 protocol specification
 ├── THREAT_MODEL.md           # STRIDE threat model
 ├── SECURITY_ANALYSIS.md      # self-authored audit: 11-finding hardening report
